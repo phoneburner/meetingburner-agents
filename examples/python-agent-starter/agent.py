@@ -47,9 +47,18 @@ def attend(room_id):
     except KeyboardInterrupt:
         pass
     finally:
-        left = mb.leave(connection_id)
-        print(f"\nLeft after {left.get('durationSeconds')}s. Billed: {left.get('tokenCost')} token(s).")
+        leave(connection_id)
     return 0
+
+
+def leave(connection_id):
+    """Leave, and say so plainly if even that fails (the network may be what went)."""
+    try:
+        left = mb.leave(connection_id)
+    except (mb.MeetingBurnerError, OSError) as err:
+        print(f"\nCould not leave cleanly ({err}); the server ends the connection on its own.", file=sys.stderr)
+        return
+    print(f"\nLeft after {left.get('durationSeconds')}s. Billed: {left.get('tokenCost')} token(s).")
 
 
 def on_event(connection_id, event):
