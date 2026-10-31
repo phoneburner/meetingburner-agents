@@ -1,0 +1,15 @@
+{
+  "name": "meetingburner",
+  "description": "MeetingBurner's plugins for Claude Code: live meetings for agents.",
+  "owner": {
+    "name": "PhoneBurner",
+    "url": "https://meetingburner.com"
+  },
+  "plugins": [
+    {
+      "name": "meetingburner",
+      "source": "./claude-code-plugin",
+      "description": "Join a live MeetingBurner meeting as a disclosed agent, take notes, post action items and summarise it afterwards."
+    }
+  ]
+}

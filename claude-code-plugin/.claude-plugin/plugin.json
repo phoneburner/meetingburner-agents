@@ -1,0 +1,28 @@
+{
+  "name": "meetingburner",
+  "displayName": "MeetingBurner",
+  "version": "0.1.0",
+  "description": "Put Claude in a live MeetingBurner meeting as a disclosed agent: join, take notes, post decisions and action items, and summarise the meeting afterwards.",
+  "author": {
+    "name": "PhoneBurner",
+    "url": "https://meetingburner.com"
+  },
+  "homepage": "https://meetingburner.com/developers",
+  "repository": "https://github.com/phoneburner/meetingburner-agents",
+  "license": "MIT",
+  "icon": "./.claude-plugin/icon.png",
+  "documentationUrl": "https://meetingburner.com/api-docs",
+  "supportUrl": "https://meetingburner.com/developers",
+  "privacyPolicyUrl": "https://meetingburner.com/privacy",
+  "termsOfServiceUrl": "https://meetingburner.com/terms",
+  "keywords": ["meetings", "mcp", "agents", "transcription", "notes", "action-items"],
+  "userConfig": {
+    "api_key": {
+      "type": "string",
+      "title": "MeetingBurner API key",
+      "description": "Starts with mb_. Create one at meetingburner.com: Settings, Developer, Create API Key. Tick 'Create meetings' and 'Read past meetings' if you want those skills.",
+      "required": true,
+      "sensitive": true
+    }
+  }
+}

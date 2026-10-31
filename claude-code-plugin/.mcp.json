@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "meetingburner": {
+      "command": "npx",
+      "args": ["-y", "meetingburner-mcp@0.1.0"],
+      "env": {
+        "MEETINGBURNER_API_KEY": "${user_config.api_key}"
+      }
+    }
+  }
+}
