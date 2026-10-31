@@ -4,7 +4,7 @@
   "private": true,
   "description": "Create a MeetingBurner meeting from a Next.js app and send an agent into it.",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 127.0.0.1",
     "build": "next build",
     "start": "next start",
     "type-check": "tsc --noEmit"

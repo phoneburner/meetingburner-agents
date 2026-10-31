@@ -26,9 +26,11 @@ therefore refuse every caller unless:
   the browser tab. Use a long random value, for example the output of
   `openssl rand -hex 32`, and share it only with people allowed to spend your
   minutes; or
-- the app runs under **`npm run dev`** on your own machine, where no token is
-  needed.
+- the app runs under **`npm run dev`**, which listens on 127.0.0.1 only and
+  answers only when addressed as localhost; no token is needed there.
 
+In both cases a request must also come from this app's own page (same
+origin, JSON body), so another website you visit cannot call your local copy.
 A deployed copy without the token refuses everything (it fails closed).
 
 ## Run it locally
@@ -39,7 +41,7 @@ You need Node.js 18.18 or later and a MeetingBurner API key (meetingburner.com,
 ```bash
 cp .env.example .env.local    # then put your key in .env.local
 npm install
-npm run dev                   # http://localhost:3000
+npm run dev                   # http://127.0.0.1:3000
 ```
 
 ## Make it your agent

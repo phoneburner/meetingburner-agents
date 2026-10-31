@@ -16,10 +16,12 @@ from training data.
 
 - Read the key from `MEETINGBURNER_API_KEY`. Never hard-code it, log it, or
   send it to the browser (no `NEXT_PUBLIC_` prefix).
-- Every route goes through `respond(req, ...)` in `lib/respond.ts`, which runs
-  the access check in `lib/access.ts` first. A new route must too: the routes
-  spend the owner's key, so a deployed copy refuses any caller without
-  `STARTER_ACCESS_TOKEN` (fails closed when it is unset, except `next dev`).
+- Every exported route handler (GET, POST, ...) is a function whose body is
+  `return respond(req, async () => { ... })`. `respond` runs the access check
+  in `lib/access.ts` first: same-origin JSON requests only, then
+  `STARTER_ACCESS_TOKEN` (fails closed when it is unset, except `next dev` on
+  localhost). The routes spend the owner's key, so a handler that skips this
+  is a hole.
 - Every join declares a true `purpose`, shown to everyone in the meeting.
   Never make an agent look like a person.
 - The key's owner must be in the meeting before the agent is admitted. The

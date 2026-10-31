@@ -9,13 +9,14 @@ posts an action item whenever someone says "action item:", and leaves cleanly
 on Ctrl-C. Replace on_line() with your own model call to make it smarter.
 """
 
+import re
 import sys
 
 import meetingburner as mb
 
 BOT_NAME = "Python Starter"
 PURPOSE = "Takes notes and posts action items (python-agent-starter)"
-ACTION_MARKER = "action item:"
+ACTION_MARKER = re.compile(r"action item:", re.IGNORECASE)
 
 
 def main(argv):
@@ -69,10 +70,12 @@ def on_line(connection_id, segment):
         speaker = f"{speaker} [agent for {segment.get('agentOwnerLabel')}]"
     print(f"{speaker}: {segment['text']}")
 
-    text = segment["text"]
-    marker = text.lower().find(ACTION_MARKER)
-    if segment.get("speakerKind") == "human" and marker != -1:
-        task = text[marker + len(ACTION_MARKER):].strip()
+    # Search and slice the SAME string: lower-casing can change a string's
+    # length ("İ" becomes two characters), so an index found in a lowered copy
+    # can point at the wrong place in the original.
+    found = ACTION_MARKER.search(segment["text"])
+    if segment.get("speakerKind") == "human" and found:
+        task = segment["text"][found.end():].strip()
         if not task:
             return
         # One refused post (a rate limit, text over 2000 characters) must not end

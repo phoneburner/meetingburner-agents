@@ -9,6 +9,7 @@ this file is the plumbing it calls.
 
 import json
 import os
+import sys
 import time
 import urllib.error
 import urllib.parse
@@ -23,6 +24,9 @@ LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
 # How many times one call waits out a 429 before giving up, and the longest wait.
 MAX_RATE_LIMIT_RETRIES = 4
 MAX_RETRY_AFTER_SECONDS = 60
+
+# Failed stream connections in a row (no stored event in between) before the agent gives up and leaves.
+MAX_STREAM_FAILURES = 10
 
 # The server closes every event stream at 785 seconds; read a little longer.
 STREAM_READ_TIMEOUT_SECONDS = 830
@@ -177,6 +181,8 @@ def events(room_id, connection_id):
         # A dropped socket, a busy server or a failed replay: back off, growing
         # only over failures in a row, then resume from the last stored event.
         failures += 1
+        if failures > MAX_STREAM_FAILURES:
+            raise MeetingBurnerError(503, {"error": f"the event stream failed {MAX_STREAM_FAILURES} times in a row; giving up"})
         time.sleep(min(2 ** (failures - 1), 30))
 
 
@@ -190,14 +196,18 @@ def _read_stream(room_id, connection_id, cursor):
             yield from parse_sse(res)
     except urllib.error.HTTPError as err:
         body = _json_or_text(err.read())
-        if err.code in (400, 401, 403, 404):
-            raise MeetingBurnerError(err.code, body) from None
         if err.code == 429:
             wait = retry_after_seconds(err.headers, body)
-            print(f"MeetingBurner rate limit on the event stream: waiting {wait}s...")
+            print(f"MeetingBurner rate limit on the event stream: waiting {wait}s...", file=sys.stderr)
             time.sleep(wait)
-    except (urllib.error.URLError, TimeoutError, ConnectionError):
-        return
+        elif err.code >= 500:
+            # The server had a problem; events() backs off and tries again, a few times.
+            print(f"The event stream failed ({err.code}: {body.get('error', body)}); retrying.", file=sys.stderr)
+        else:
+            # Any other refusal (a bad key, a revoked agent, 410: the meeting ended) is final.
+            raise MeetingBurnerError(err.code, body) from None
+    except (urllib.error.URLError, TimeoutError, ConnectionError) as err:
+        print(f"Lost the event stream ({err}); reconnecting.", file=sys.stderr)
 
 
 def parse_sse(lines):
