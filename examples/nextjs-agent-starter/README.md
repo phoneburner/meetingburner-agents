@@ -3,7 +3,7 @@
 A tiny Next.js app that creates a MeetingBurner meeting through the
 [Bot API](https://meetingburner.com/api-docs) and sends an agent into it.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fphoneburner%2Fmeetingburner-agents%2Ftree%2Fmain%2Fexamples%2Fnextjs-agent-starter&project-name=meetingburner-agent-starter&env=MEETINGBURNER_API_KEY&envDescription=Your%20MeetingBurner%20API%20key%20(starts%20with%20mb_)%2C%20with%20%22Create%20meetings%22%20ticked&envLink=https%3A%2F%2Fmeetingburner.com%2Fapi-docs)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fphoneburner%2Fmeetingburner-agents%2Ftree%2Fmain%2Fexamples%2Fnextjs-agent-starter&project-name=meetingburner-agent-starter&env=MEETINGBURNER_API_KEY,STARTER_ACCESS_TOKEN&envDescription=MEETINGBURNER_API_KEY%3A%20your%20MeetingBurner%20API%20key%20(starts%20with%20mb_)%2C%20with%20%22Create%20meetings%22%20ticked.%20STARTER_ACCESS_TOKEN%3A%20a%20long%20random%20secret%20that%20callers%20of%20this%20app%20must%20give.&envLink=https%3A%2F%2Fmeetingburner.com%2Fapi-docs)
 
 1. **Create a meeting.** The app calls `POST /meetings` and shows the host link.
 2. **Join it yourself**, signed in to MeetingBurner. An agent is admitted only
@@ -14,6 +14,22 @@ A tiny Next.js app that creates a MeetingBurner meeting through the
 
 The API key stays on the server: the browser only talks to this app's routes
 under `app/api/`.
+
+## Lock it before you deploy
+
+Every route acts with **your** MeetingBurner key, so anyone who could call a
+deployed copy could create meetings and send agents billed to you. The routes
+therefore refuse every caller unless:
+
+- **`STARTER_ACCESS_TOKEN` is set** (the Deploy button asks for it) and the
+  request carries the same value. The page asks for it once and keeps it for
+  the browser tab. Use a long random value, for example the output of
+  `openssl rand -hex 32`, and share it only with people allowed to spend your
+  minutes; or
+- the app runs under **`npm run dev`** on your own machine, where no token is
+  needed.
+
+A deployed copy without the token refuses everything (it fails closed).
 
 ## Run it locally
 
@@ -44,6 +60,7 @@ connection open:
 | File | What it is |
 | --- | --- |
 | `lib/meetingburner.ts` | One function per API call, server side only |
+| `lib/access.ts` | Who may call the routes: the access token check |
 | `app/api/meetings/route.ts` | Creates a meeting |
 | `app/api/agent/route.ts` | Sends the agent in and posts one note |
 | `app/api/agent/leave/route.ts` | Takes the agent out |

@@ -73,9 +73,15 @@ def on_line(connection_id, segment):
     marker = text.lower().find(ACTION_MARKER)
     if segment.get("speakerKind") == "human" and marker != -1:
         task = text[marker + len(ACTION_MARKER):].strip()
-        if task:
-            mb.post_artifact(connection_id, "action_item", task)
+        if not task:
+            return
+        # One refused post (a rate limit, text over 2000 characters) must not end
+        # the note taking for the rest of the meeting: say so and carry on.
+        try:
+            mb.post_artifact(connection_id, "action_item", task[:2000])
             print(f"  -> posted action item: {task}")
+        except mb.MeetingBurnerError as err:
+            print(f"  -> could not post that action item ({err}); still listening", file=sys.stderr)
 
 
 def label(person):

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 interface Meeting {
   roomId: string
@@ -9,9 +9,39 @@ interface Meeting {
   hostUrl: string
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(path, { method: 'POST', body: JSON.stringify(body) })
-  const data = await res.json()
+interface JoinReply {
+  status: string
+  connectionId?: string
+  retryAfterSeconds?: number
+  noteError?: string
+}
+
+/** The access token (STARTER_ACCESS_TOKEN) is kept for this browser tab only. */
+const TOKEN_KEY = 'starter-access-token'
+
+function readToken(): string {
+  try {
+    return sessionStorage.getItem(TOKEN_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+function saveToken(token: string) {
+  try {
+    sessionStorage.setItem(TOKEN_KEY, token)
+  } catch {
+    // Private windows can refuse storage; the token then lasts until reload.
+  }
+}
+
+async function post<T>(path: string, token: string, body: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-starter-token': token },
+    body: JSON.stringify(body),
+  })
+  const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`)
   return data as T
 }
@@ -19,9 +49,17 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 export default function Home() {
+  const [token, setToken] = useState('')
   const [meeting, setMeeting] = useState<Meeting | null>(null)
   const [connectionId, setConnectionId] = useState<string | null>(null)
   const [status, setStatus] = useState('')
+
+  useEffect(() => setToken(readToken()), [])
+
+  function updateToken(value: string) {
+    setToken(value)
+    saveToken(value)
+  }
 
   async function run(work: () => Promise<void>) {
     try {
@@ -34,7 +72,7 @@ export default function Home() {
   const create = () =>
     run(async () => {
       setStatus('Creating a meeting...')
-      setMeeting(await post<Meeting>('/api/meetings', { name: 'Meeting with my agent' }))
+      setMeeting(await post<Meeting>('/api/meetings', token, { name: 'Meeting with my agent' }))
       setStatus('Open the host link (signed in), then send the agent in.')
     })
 
@@ -43,13 +81,14 @@ export default function Home() {
     run(async () => {
       if (!meeting) return
       for (let attempt = 0; attempt < 20; attempt++) {
-        const joined = await post<{ status: string; connectionId?: string; retryAfterSeconds?: number }>(
-          '/api/agent',
-          { roomId: meeting.roomId },
-        )
+        const joined = await post<JoinReply>('/api/agent', token, { roomId: meeting.roomId })
         if (joined.status === 'connected' && joined.connectionId) {
           setConnectionId(joined.connectionId)
-          setStatus('The agent is in the meeting and posted a note. Look at the Intel panel.')
+          setStatus(
+            joined.noteError
+              ? `The agent is in the meeting, but its note failed: ${joined.noteError}`
+              : 'The agent is in the meeting and posted a note. Look at the Intel panel.',
+          )
           return
         }
         setStatus('Waiting for you to join the meeting...')
@@ -61,7 +100,7 @@ export default function Home() {
   const removeAgent = () =>
     run(async () => {
       if (!connectionId) return
-      const left = await post<{ durationSeconds: number; tokenCost: number }>('/api/agent/leave', { connectionId })
+      const left = await post<{ durationSeconds: number; tokenCost: number }>('/api/agent/leave', token, { connectionId })
       setConnectionId(null)
       setStatus(`The agent left after ${left.durationSeconds}s. Billed: ${left.tokenCost} token(s).`)
     })
@@ -71,7 +110,14 @@ export default function Home() {
       <h1>MeetingBurner agent starter</h1>
       <p>Create a meeting, join it yourself, then send an agent in. Everyone in the meeting sees the agent and who added it.</p>
 
-      <button onClick={create}>1. Create a meeting</button>
+      <label>
+        Access token (the STARTER_ACCESS_TOKEN you set; not needed under <code>npm run dev</code>){' '}
+        <input type="password" value={token} onChange={e => updateToken(e.target.value)} autoComplete="off" />
+      </label>
+
+      <p>
+        <button onClick={create}>1. Create a meeting</button>
+      </p>
 
       {meeting && (
         <section>
