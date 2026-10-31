@@ -35,6 +35,7 @@ meeting's Intel panel, labelled as written by this agent on your behalf.
 | --- | --- |
 | `agent.py` | The agent. Change `on_line()` to call your own model |
 | `meetingburner.py` | One function per API endpoint, plus the event stream with reconnects |
+| `check_stream.py` | A runnable check of the stream's reconnects against a fake server: `python check_stream.py` |
 | `AGENTS.md`, `CLAUDE.md` | Notes for a coding agent working in this folder |
 
 ## Good to know
@@ -45,4 +46,7 @@ meeting's Intel panel, labelled as written by this agent on your behalf.
   done. Rates: [meetingburner.com/api-docs#usage](https://meetingburner.com/api-docs#usage).
 - The event stream closes itself every 785 seconds. `meetingburner.events()`
   reconnects from the resume cursor, so a long meeting reads as one stream.
+  A dropped connection or a garbled frame is logged and retried with back-off;
+  after five failures in a row the agent leaves and exits. When the server's
+  final `stream.closing` says not to reconnect, the agent prints why and exits 0.
 - MeetingBurner cannot join Zoom, Teams or Google Meet meetings.

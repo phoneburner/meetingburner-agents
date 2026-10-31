@@ -34,5 +34,6 @@ https://meetingburner.com/api-docs. An MCP server for the same API:
 ## Check your change
 
 ```bash
-python -m py_compile agent.py meetingburner.py
+python -m py_compile agent.py meetingburner.py check_stream.py
+python check_stream.py   # the event stream against a fake server: drops, bad frames, stream.closing
 ```

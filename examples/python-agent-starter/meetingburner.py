@@ -7,6 +7,7 @@ Every function here is one documented endpoint
 this file is the plumbing it calls.
 """
 
+import http.client
 import json
 import os
 import sys
@@ -26,7 +27,7 @@ MAX_RATE_LIMIT_RETRIES = 4
 MAX_RETRY_AFTER_SECONDS = 60
 
 # Failed stream connections in a row (no stored event in between) before the agent gives up and leaves.
-MAX_STREAM_FAILURES = 10
+MAX_STREAM_FAILURES = 5
 
 # The server closes every event stream at 785 seconds; read a little longer.
 STREAM_READ_TIMEOUT_SECONDS = 830
@@ -171,6 +172,10 @@ def events(room_id, connection_id):
                 seen.add(row)
             yield event
         if closing is not None and not closing.get("reconnect"):
+            # The server says this stream is over for good (the meeting ended,
+            # the agent was removed). Say why, then stop: redialling earns a 403.
+            why = closing.get("message") or closing.get("reason") or "no reason given"
+            print(f"The meeting's event stream closed: {why}.")
             return
         if closing is not None and closing.get("reason") != "replay_failed":
             cursor = closing.get("cursor") or cursor
@@ -181,9 +186,18 @@ def events(room_id, connection_id):
         # A dropped socket, a busy server or a failed replay: back off, growing
         # only over failures in a row, then resume from the last stored event.
         failures += 1
-        if failures > MAX_STREAM_FAILURES:
+        if failures >= MAX_STREAM_FAILURES:
             raise MeetingBurnerError(503, {"error": f"the event stream failed {MAX_STREAM_FAILURES} times in a row; giving up"})
         time.sleep(min(2 ** (failures - 1), 30))
+
+
+# What reading a live stream can raise when the connection or a frame goes bad.
+# OSError covers urllib's URLError, ConnectionError, TimeoutError and, on
+# Python 3.9, socket.timeout. http.client raises IncompleteRead (an
+# HTTPException) when a chunked body is cut mid-chunk, and ValueError when it
+# is cut at a chunk boundary; ValueError also covers a frame that is not JSON
+# or not UTF-8.
+STREAM_READ_ERRORS = (OSError, http.client.HTTPException, ValueError)
 
 
 def _read_stream(room_id, connection_id, cursor):
@@ -206,8 +220,10 @@ def _read_stream(room_id, connection_id, cursor):
         else:
             # Any other refusal (a bad key, a revoked agent, 410: the meeting ended) is final.
             raise MeetingBurnerError(err.code, body) from None
-    except (urllib.error.URLError, TimeoutError, ConnectionError) as err:
-        print(f"Lost the event stream ({err}); reconnecting.", file=sys.stderr)
+    except STREAM_READ_ERRORS as err:
+        # The connection dropped, timed out or sent a frame that would not
+        # parse. events() backs off and resumes from the last stored event.
+        print(f"Lost the event stream ({type(err).__name__}: {err}); reconnecting.", file=sys.stderr)
 
 
 def parse_sse(lines):
